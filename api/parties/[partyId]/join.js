@@ -10,6 +10,12 @@ export default async function handler(request, response) {
   try {
     const { partyId } = request.query
     const { playerName } = request.body ?? {}
+    const safePlayerName = String(playerName ?? '').trim()
+
+    if (!safePlayerName) {
+      sendError(response, 400, 'Podaj nick gracza.')
+      return
+    }
 
     const { data: room, error: roomError } = await supabase
       .from('rooms')
@@ -27,7 +33,7 @@ export default async function handler(request, response) {
       .from('room_players')
       .insert({
         room_id: room.id,
-        display_name: String(playerName || 'Gracz'),
+        display_name: safePlayerName,
         join_token: joinToken,
       })
       .select()

@@ -70,7 +70,7 @@ export async function createBoardForPlayer({ roomPlayerId, boardSize, phrases })
 export async function getPartyForViewer(roomId, viewerPlayerId) {
   const { data: room, error: roomError } = await supabase
     .from('rooms')
-    .select('id, name, board_size, lines_to_win, winner_room_player_id, winner_declared_at')
+    .select('*')
     .eq('id', roomId)
     .single()
 
@@ -128,8 +128,11 @@ export async function getPartyForViewer(roomId, viewerPlayerId) {
   return {
     id: room.id,
     partyName: room.name,
+    roomCode: getRoomCodeFromPartyId(room.id),
+    hostPlayerId: room.host_player_id,
     boardSize: room.board_size,
     linesToWin: room.lines_to_win,
+    stopOnFirstWin: Boolean(room.stop_on_first_winner),
     winnerRoomPlayerId: room.winner_room_player_id,
     winnerDeclaredAt: room.winner_declared_at,
     players: playersView,
@@ -138,4 +141,11 @@ export async function getPartyForViewer(roomId, viewerPlayerId) {
 
 export function createJoinToken() {
   return randomUUID().replace(/-/g, '')
+}
+
+export function getRoomCodeFromPartyId(partyId) {
+  return String(partyId ?? '')
+    .replace(/-/g, '')
+    .slice(0, 6)
+    .toUpperCase()
 }

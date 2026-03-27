@@ -1,4 +1,4 @@
-import { getPartyForViewer } from '../../_lib/game.js'
+import { getPartyForViewer, getRoomCodeFromPartyId } from '../../_lib/game.js'
 import { sendError, sendJson, supabase } from '../../_lib/supabase.js'
 
 export default async function handler(request, response) {
@@ -43,7 +43,7 @@ export default async function handler(request, response) {
 
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('id, name, board_size, lines_to_win')
+      .select('*')
       .eq('id', partyId)
       .single()
 
@@ -63,8 +63,11 @@ export default async function handler(request, response) {
       party: {
         id: room.id,
         partyName: room.name,
+        roomCode: getRoomCodeFromPartyId(room.id),
+        hostPlayerId: room.host_player_id,
         boardSize: room.board_size,
         linesToWin: room.lines_to_win,
+        stopOnFirstWin: Boolean(room.stop_on_first_winner),
         players: players.map((player) => ({
           id: player.id,
           name: player.display_name,

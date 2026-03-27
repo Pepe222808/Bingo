@@ -1,82 +1,240 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useDeferredValue, useMemo, useEffect, useRef, useState } from 'react'
 import './App.css'
 
 const BOARD_SIZES = [3, 5, 7]
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 const PARTY_PARAM = 'party'
+const LOCALE_PL = 'pl'
+const LOCALE_EN = 'en'
 
-const DEFAULT_PHRASES = [
-  'Kawa w dlon',
-  'To tylko szybkie pytanie',
-  'Jeszcze jedna poprawka',
-  'Wracam za 5 minut',
-  'Dziala u mnie',
-  'Nie ruszaj produkcji',
-  'Commit na szybko',
-  'Trzeba zrobic deploy',
-  'Deadline byl wczoraj',
-  'To jest priorytet',
-  'Robimy refactor',
-  'Zaraz sprawdze',
-  'Mam lepszy pomysl',
-  'Kto dotykal CSS',
-  'To feature nie bug',
-  'Jestem na callu',
-  'Znowu cache',
-  'Nie mamy backendu',
-  'Pushnij na main',
-  'Zrob screen',
-  'Juz prawie gotowe',
-  'Trzeba to ogarnac',
-  'To bedzie proste',
-  'Wyslij jeszcze raz',
-  'Popraw tylko kolor',
-  'Zmien nazwe zmiennej',
-  'Dodaj loading',
-  'Brakuje jednego ifa',
-  'Mamy to na roadmapie',
-  'Testy przechodza lokalnie',
-  'To kwestia danych',
-  'Zmienmy font',
-  'Potrzebny hotfix',
-  'Wrzuc to do backlogu',
-  'Kto robi review',
-  'Wyglada okej',
-  'Musimy to przepiac',
-  'Odpal preview',
-  'Brakuje propsa',
-  'To nie byl moj commit',
-  'Jeszcze dark mode',
-  'Zrob z tego modal',
-  'Zadziala po refreshu',
-  'Backend odda JSON',
-  'Na mobile sie sypie',
-  'Podmien endpoint',
-  'Wyczysc console logi',
-  'Skad te dane',
-  'Moge to zmergowac',
-  'Dopisze potem testy',
-  'To przez rozszerzenie',
-  'Klient chce na juz',
-  'To tylko MVP',
-  'Dodaj tooltip',
-  'Trzeba to przeliczyc',
-  'Niech bedzie prosciej',
-  'Sprawdz jeszcze safari',
-  'To sie da obejsc',
-  'Kto ma dostep',
-  'Potrzeba lepszego UX',
-]
+const TEXT = {
+  en: {
+    appTitle: 'React Bingo',
+    appHero: 'Bingo with online rooms and private boards',
+    modeSingle: 'Single Player',
+    modeMulti: 'Multiplayer',
+    themeLight: 'Light',
+    themeDark: 'Dark',
+    settingsTitle: 'Settings',
+    settingsSingleDesc: 'Create and play your board locally.',
+    settingsMultiLobbyDesc: 'Choose to create a room or join an existing one.',
+    settingsMultiHostDesc: 'You are the host. Configure and start the next board for all players.',
+    settingsMultiPlayerDesc: 'You are a player. Board settings are controlled by the host.',
+    labelPlayerSingle: 'Player Name',
+    labelPlayerMulti: 'Your Nickname',
+    labelPartyName: 'Room Name',
+    labelRoomInput: 'Room Code or Invite Link',
+    roomInputPlaceholder: 'e.g. A1B2C3 or full invite link',
+    roomInputHint: 'Paste a room code or an invite link.',
+    actionGroup: 'Multiplayer Action',
+    actionJoin: 'Join',
+    actionCreate: 'Create',
+    boardSize: 'Board Size',
+    boardSizeHint: 'Sizes unlock by phrase count: 9 -> 3x3, 25 -> 5x5, 49 -> 7x7.',
+    linesToWin: 'Lines to Win',
+    linesToWinHint: 'Maximum {max} lines for a {size}x{size} board.',
+    endGame: 'Game End Rule',
+    endGameSwitch: 'End after first winner',
+    endGameOnHint: 'After first win, marking is locked.',
+    endGameOffHint: 'Game continues and everyone can keep scoring lines.',
+    phrases: 'Bingo Phrases (one per line)',
+    phrasesHint: 'All players use this phrase pool. Each player gets a randomized board.',
+    singleCreate: 'Create Board',
+    restartRoomBoard: 'Create New Board in This Room',
+    multiCreateRoom: 'Create Room',
+    multiJoinRoom: 'Join Room',
+    multiJoinAsNew: 'Join as New Player',
+    multiGoJoin: 'Go to Join',
+    multiGoCreate: 'Go to Create',
+    copyLink: 'Copy Invite Link',
+    copyCode: 'Copy Code: {code}',
+    leaveRoom: 'Leave Room',
+    leavePreview: 'Leave Preview',
+    hostOnlyNotice: 'Waiting for host. Only host can change settings and start a new board.',
+    roomCreated: 'Room created. Room code: {code}.',
+    boardCreated: 'Single-player board is ready.',
+    boardRestarted: 'New board created in this room.',
+    rejoined: 'You rejoined your room.',
+    joinedByLink: 'You joined the room.',
+    linkCopied: 'Invite link copied.',
+    linkManual: 'Copy manually: {link}',
+    codeCopied: 'Room code {code} copied.',
+    codeManual: 'Room code: {code}',
+    switchedToSingle: 'Switched to single-player mode.',
+    modeLabel: 'Mode',
+    goalLabel: 'Goal',
+    goalLines: '{count} lines',
+    stageTitleSingleReady: 'Single Player',
+    stageTitleSingleEmpty: 'Create a board first',
+    gameMenu: 'Game Menu',
+    networkLink: 'Invite Link',
+    networkCode: 'Room Code',
+    networkStatus: 'Room Status',
+    networkStatusWaiting: 'Waiting',
+    networkStatusPlayers: '{count} players online',
+    playerBoard: 'Your board: {name}',
+    playerLines: 'Lines: {lines} / {goal}',
+    privateBoardHint: 'You only see your board. Other players are visible on the leaderboard.',
+    winnerPrefix: 'Winner: {names}',
+    winnerFinalPrefix: 'Game over. Winner: {names}',
+    emptySingle: 'Choose settings and create a board.',
+    emptyMulti: 'Join a room by code or create a new room.',
+    emptyHint: 'In online mode each player gets a private board and shares one leaderboard.',
+    leaderboardTitle: 'Leaderboard',
+    leaderboardHint: 'Everyone sees total lines. Boards remain private.',
+    winnerBadge: 'Winner',
+    linesUnit: 'lines',
+    leaderboardEmpty: 'Leaderboard appears after creating or joining a room.',
+    onlineInfoTitle: 'How Online Mode Works',
+    onlineInfoText: 'Rooms and boards are stored in Supabase. Invite link points to the same room and game state auto-refreshes.',
+    mobileSingleHint: 'Single mode selected. Open the settings panel to configure your board.',
+    mobileOpenSingle: 'Open Single Menu',
+    mobileOpenCreate: 'Open Create Menu',
+    mobileCreateHint: 'Create selected. Open settings panel to configure room and board.',
+    requiredPlayer: 'Enter player name.',
+    requiredNick: 'Enter your nickname.',
+    requiredParty: 'Enter room name.',
+    requiredJoinInput: 'Enter room code or invite link.',
+    notFoundRoom: 'Room not found. Check code or link.',
+    noPartyId: 'Room ID is missing in the link.',
+    minPhrases: 'For {size}x{size} board you need at least {count} phrases.',
+    apiOffline: 'API connection failed. Run locally with: npm run dev:vercel (instead of npm run dev).',
+  },
+  pl: {
+    appTitle: 'React Bingo',
+    appHero: 'Bingo z pokojami online i prywatnymi planszami',
+    modeSingle: 'Single Player',
+    modeMulti: 'Multiplayer',
+    themeLight: 'Jasny',
+    themeDark: 'Ciemny',
+    settingsTitle: 'Ustawienia',
+    settingsSingleDesc: 'Tworzysz i grasz lokalnie na swojej planszy.',
+    settingsMultiLobbyDesc: 'Wybierz: utworz pokoj albo dolacz do istniejacego.',
+    settingsMultiHostDesc: 'Jestes hostem. Ustawiasz i uruchamiasz kolejna plansze dla wszystkich.',
+    settingsMultiPlayerDesc: 'Jestes graczem. Ustawienia planszy kontroluje host.',
+    labelPlayerSingle: 'Nazwa Gracza',
+    labelPlayerMulti: 'Twoj Nick',
+    labelPartyName: 'Nazwa Pokoju',
+    labelRoomInput: 'Kod Pokoju lub Link',
+    roomInputPlaceholder: 'np. A1B2C3 albo pelny link',
+    roomInputHint: 'Wklej kod pokoju albo link zaproszenia.',
+    actionGroup: 'Akcja Multiplayer',
+    actionJoin: 'Dolacz',
+    actionCreate: 'Stworz',
+    boardSize: 'Rozmiar Planszy',
+    boardSizeHint: 'Rozmiary aktywuja sie progowo: 9 -> 3x3, 25 -> 5x5, 49 -> 7x7.',
+    linesToWin: 'Linie do Wygranej',
+    linesToWinHint: 'Maksymalnie {max} linii dla planszy {size}x{size}.',
+    endGame: 'Zasada Zakonczenia',
+    endGameSwitch: 'Zakoncz po pierwszym zwyciezcy',
+    endGameOnHint: 'Po pierwszej wygranej dalsze zaznaczanie jest zablokowane.',
+    endGameOffHint: 'Gra trwa dalej i kazdy moze dobijac kolejne linie.',
+    phrases: 'Hasla Bingo (jedno na linie)',
+    phrasesHint: 'Wszyscy gracze dostaja te hasla, ale kazdy ma wylosowana inna plansze.',
+    singleCreate: 'Stworz Plansze',
+    restartRoomBoard: 'Utworz nowa plansze w tym pokoju',
+    multiCreateRoom: 'Stworz Pokoj',
+    multiJoinRoom: 'Dolacz do Pokoju',
+    multiJoinAsNew: 'Dolacz jako Nowy Gracz',
+    multiGoJoin: 'Przejdz do Dolaczania',
+    multiGoCreate: 'Przejdz do Tworzenia',
+    copyLink: 'Kopiuj Link',
+    copyCode: 'Kopiuj Kod: {code}',
+    leaveRoom: 'Opusc Pokoj',
+    leavePreview: 'Opusc Podglad',
+    hostOnlyNotice: 'Czekasz na hosta. Tylko host moze zmieniac ustawienia i uruchomic nowa plansze.',
+    roomCreated: 'Pokoj utworzony. Kod pokoju: {code}.',
+    boardCreated: 'Plansza single-player gotowa.',
+    boardRestarted: 'Nowa plansza utworzona w tym pokoju.',
+    rejoined: 'Wrociles do swojego pokoju.',
+    joinedByLink: 'Dolaczyles do pokoju.',
+    linkCopied: 'Link zaproszenia skopiowany.',
+    linkManual: 'Skopiuj recznie: {link}',
+    codeCopied: 'Kod pokoju {code} skopiowany.',
+    codeManual: 'Kod pokoju: {code}',
+    switchedToSingle: 'Wrociles do trybu single-player.',
+    modeLabel: 'Tryb',
+    goalLabel: 'Cel',
+    goalLines: '{count} linii',
+    stageTitleSingleReady: 'Single Player',
+    stageTitleSingleEmpty: 'Najpierw utworz plansze',
+    gameMenu: 'Menu Gry',
+    networkLink: 'Link Zaproszenia',
+    networkCode: 'Kod Pokoju',
+    networkStatus: 'Status Pokoju',
+    networkStatusWaiting: 'Oczekiwanie',
+    networkStatusPlayers: '{count} graczy online',
+    playerBoard: 'Twoja plansza: {name}',
+    playerLines: 'Linie: {lines} / {goal}',
+    privateBoardHint: 'Widzisz tylko swoja plansze. Reszte widzisz na leaderboardzie.',
+    winnerPrefix: 'Wygrywa: {names}',
+    winnerFinalPrefix: 'Koniec gry. Zwyciezca: {names}',
+    emptySingle: 'Wybierz ustawienia i utworz plansze.',
+    emptyMulti: 'Dolacz kodem lub utworz nowy pokoj.',
+    emptyHint: 'W trybie online kazdy gracz ma prywatna plansze i wspolny leaderboard.',
+    leaderboardTitle: 'Leaderboard',
+    leaderboardHint: 'Kazdy widzi laczna liczbe linii. Plansze pozostaja prywatne.',
+    winnerBadge: 'Zwyciezca',
+    linesUnit: 'linii',
+    leaderboardEmpty: 'Ranking pojawi sie po utworzeniu gry albo dolaczeniu do pokoju.',
+    onlineInfoTitle: 'Jak dziala Online',
+    onlineInfoText: 'Pokoj i plansze sa zapisywane w Supabase. Link prowadzi do tego samego pokoju, a stan gry odswieza sie automatycznie.',
+    mobileSingleHint: 'Wybrano single. Otworz panel ustawien i skonfiguruj plansze.',
+    mobileOpenSingle: 'Otworz Menu Single',
+    mobileOpenCreate: 'Otworz Menu Tworzenia',
+    mobileCreateHint: 'Wybrano tworzenie. Otworz panel ustawien i skonfiguruj pokoj.',
+    requiredPlayer: 'Podaj nazwe gracza.',
+    requiredNick: 'Podaj swoj nick.',
+    requiredParty: 'Podaj nazwe pokoju.',
+    requiredJoinInput: 'Wpisz kod pokoju albo link.',
+    notFoundRoom: 'Nie znaleziono pokoju. Sprawdz kod lub link.',
+    noPartyId: 'Brakuje identyfikatora pokoju w linku.',
+    minPhrases: 'Dla planszy {size}x{size} potrzebujesz min. {count} hasel.',
+    apiOffline: 'Brak polaczenia z API. Lokalnie uruchom: npm run dev:vercel (zamiast npm run dev).',
+  },
+}
 
-function normalizePhrases(input, boardSize) {
-  const required = boardSize * boardSize
-  const parsed = input
+function normalizePhrases(input) {
+  return [...new Set(input
     .split('\n')
     .map((item) => item.trim())
-    .filter(Boolean)
+    .filter(Boolean))]
+}
 
-  const merged = [...new Set([...parsed, ...DEFAULT_PHRASES])]
-  return merged.slice(0, Math.max(merged.length, required))
+function detectLocaleFromPath(pathname) {
+  return pathname === '/pl' || pathname.startsWith('/pl/') ? LOCALE_PL : LOCALE_EN
+}
+
+function createDefaultPhrases(locale) {
+  const prefix = locale === LOCALE_PL ? 'Haslo' : 'Phrase'
+  return Array.from({ length: 25 }, (_, index) => `${prefix} ${index + 1}`)
+}
+
+function formatText(template, values = {}) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template,
+  )
+}
+
+function getAvailableBoardSizes(phraseCount) {
+  return BOARD_SIZES.filter((size) => phraseCount >= size * size)
+}
+
+function getPartySignature(party) {
+  if (!party) return 'none'
+  return JSON.stringify({
+    id: party.id,
+    boardSize: party.boardSize,
+    linesToWin: party.linesToWin,
+    stopOnFirstWin: Boolean(party.stopOnFirstWin),
+    winnerRoomPlayerId: party.winnerRoomPlayerId ?? null,
+    players: (party.players ?? []).map((player) => ({
+      id: player.id,
+      lines: player.lines,
+      marked: (player.cells ?? []).map((cell) => Number(Boolean(cell.marked))),
+    })),
+  })
 }
 
 function clampLines(boardSize, linesToWin) {
@@ -86,6 +244,10 @@ function clampLines(boardSize, linesToWin) {
 
 function getPartySearchParam() {
   return new URLSearchParams(window.location.search).get(PARTY_PARAM)
+}
+
+function sanitizeRoomCode(value) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
 }
 
 function setPartyInUrl(partyId) {
@@ -110,14 +272,26 @@ function setStoredPlayer(partyId, player) {
   window.localStorage.setItem(`bingo-player-${partyId}`, JSON.stringify(player))
 }
 
+function clearStoredPlayer(partyId) {
+  if (!partyId) return
+  window.localStorage.removeItem(`bingo-player-${partyId}`)
+}
+
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
-    },
-    ...options,
-  })
+  let response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers ?? {}),
+      },
+      ...options,
+    })
+  } catch {
+    throw new Error(
+      'Brak polaczenia z API. Lokalnie uruchom: npm run dev:vercel (zamiast npm run dev).',
+    )
+  }
 
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
@@ -128,6 +302,9 @@ async function request(path, options = {}) {
 }
 
 function App() {
+  const locale = detectLocaleFromPath(window.location.pathname)
+  const t = (key, values) => formatText(TEXT[locale][key], values)
+  const defaultPhrases = createDefaultPhrases(locale)
   const initialPartyId = getPartySearchParam()
   const initialStoredPlayer = getStoredPlayer(initialPartyId)
 
@@ -135,23 +312,43 @@ function App() {
   const [mode, setMode] = useState(initialPartyId ? 'multi' : 'single')
   const [boardSize, setBoardSize] = useState(5)
   const [linesToWin, setLinesToWin] = useState(2)
-  const [partyName, setPartyName] = useState('Piatkowe bingo')
-  const [playerName, setPlayerName] = useState(initialStoredPlayer?.name ?? 'Gracz 1')
-  const [phrasesText, setPhrasesText] = useState(DEFAULT_PHRASES.join('\n'))
+  const [endOnFirstWin, setEndOnFirstWin] = useState(false)
+  const [partyName, setPartyName] = useState('')
+  const [playerName, setPlayerName] = useState(initialStoredPlayer?.name ?? '')
+  const [phrasesText, setPhrasesText] = useState(defaultPhrases.join('\n'))
   const [singleGame, setSingleGame] = useState(null)
   const [partyState, setPartyState] = useState(null)
   const [partyId, setPartyId] = useState(initialPartyId)
+  const [joinInput, setJoinInput] = useState('')
+  const [multiLobbyView, setMultiLobbyView] = useState('join')
   const [playerId, setPlayerId] = useState(initialStoredPlayer?.playerId ?? null)
   const [joinToken, setJoinToken] = useState(initialStoredPlayer?.joinToken ?? null)
-  const [statusMessage, setStatusMessage] = useState(
-    initialPartyId ? 'Link wykryty. Mozesz dolaczyc do pokoju.' : '',
-  )
+  const [statusMessage, setStatusMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isBusy, setIsBusy] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 720)
+  const layoutRef = useRef(null)
+  const didCenterMobileRef = useRef(false)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 720)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile || didCenterMobileRef.current || !layoutRef.current) return
+    const container = layoutRef.current
+    container.scrollLeft = container.clientWidth
+    didCenterMobileRef.current = true
+  }, [isMobile])
 
   useEffect(() => {
     if (mode === 'multi' && partyId) {
@@ -162,8 +359,30 @@ function App() {
     }
   }, [mode, partyId])
 
-  const parsedPhrases = normalizePhrases(phrasesText, boardSize)
+  useEffect(() => {
+    if (mode === 'multi' && !partyState) {
+      setMultiLobbyView('join')
+    }
+  }, [mode, partyState])
+
+  const deferredPhrasesText = useDeferredValue(phrasesText)
+  const parsedPhrases = useMemo(() => normalizePhrases(deferredPhrasesText), [deferredPhrasesText])
+  const availableBoardSizes = useMemo(
+    () => getAvailableBoardSizes(parsedPhrases.length),
+    [parsedPhrases.length],
+  )
+  const canCreateForSelectedSize = parsedPhrases.length >= boardSize * boardSize
   const maxPossibleLines = boardSize * 2 + 2
+  const canUsePlayerName = Boolean(playerName.trim())
+  const canUsePartyName = Boolean(partyName.trim())
+  const phrasesPlaceholder = defaultPhrases.join('\n')
+
+  useEffect(() => {
+    if (availableBoardSizes.length === 0) return
+    if (!availableBoardSizes.includes(boardSize)) {
+      setBoardSize(availableBoardSizes[availableBoardSizes.length - 1])
+    }
+  }, [availableBoardSizes, boardSize])
   const currentPlayer =
     mode === 'single'
       ? singleGame?.player ?? null
@@ -176,13 +395,41 @@ function App() {
       : [...(partyState?.players ?? [])].sort((a, b) => b.lines - a.lines)
   const winners =
     mode === 'single'
-      ? singleGame?.player && singleGame.player.lines >= singleGame.linesToWin
-        ? [singleGame.player]
+      ? singleGame?.player
+        ? singleGame.stopOnFirstWin
+          ? singleGame.winnerDeclared
+            ? [singleGame.player]
+            : []
+          : singleGame.player.lines >= singleGame.linesToWin
+            ? [singleGame.player]
+            : []
         : []
-      : (partyState?.players ?? []).filter((player) => player.lines >= partyState.linesToWin)
+      : partyState?.stopOnFirstWin && partyState?.winnerRoomPlayerId
+        ? (partyState.players ?? []).filter((player) => player.id === partyState.winnerRoomPlayerId)
+        : (partyState?.players ?? []).filter((player) => player.lines >= partyState.linesToWin)
+  const winnerIds = new Set(winners.map((winner) => winner.id))
+  const gameLockedByWinner =
+    mode === 'single'
+      ? Boolean(singleGame?.stopOnFirstWin && singleGame?.winnerDeclared)
+      : Boolean(partyState?.stopOnFirstWin && partyState?.winnerRoomPlayerId)
+  const isInMultiplayerRoom = mode === 'multi' && Boolean(partyState && playerId && joinToken)
+  const isHost = isInMultiplayerRoom && partyState?.hostPlayerId === playerId
+  const showBoardSettings =
+    mode === 'single' || (mode === 'multi' && ((isInMultiplayerRoom && isHost) || (!isInMultiplayerRoom && multiLobbyView === 'create')))
   const inviteLink = partyId ? `${window.location.origin}${window.location.pathname}?party=${partyId}` : ''
+  const roomCode = partyState?.roomCode ?? ''
 
   const createSingleGame = () => {
+    if (!playerName.trim()) {
+      setErrorMessage(t('requiredPlayer'))
+      return
+    }
+
+    if (parsedPhrases.length < boardSize * boardSize) {
+      setErrorMessage(t('minPhrases', { size: boardSize, count: boardSize * boardSize }))
+      return
+    }
+
     const safeLinesToWin = clampLines(boardSize, linesToWin)
     const cells = parsedPhrases
       .slice(0, boardSize * boardSize)
@@ -196,28 +443,52 @@ function App() {
     setSingleGame({
       boardSize,
       linesToWin: safeLinesToWin,
+      stopOnFirstWin: endOnFirstWin,
+      winnerDeclared: false,
       player: {
         id: 'solo',
-        name: playerName || 'Gracz 1',
+        name: playerName.trim(),
         cells,
         lines: 0,
       },
     })
-    setStatusMessage('Plansza single player gotowa.')
+    setStatusMessage(t('boardCreated'))
     setErrorMessage('')
+    if (isMobile) {
+      requestAnimationFrame(() => openGamePanel())
+    }
   }
 
   const createParty = async () => {
     setIsBusy(true)
     setErrorMessage('')
     try {
+      if (!playerName.trim()) {
+        setErrorMessage(t('requiredNick'))
+        setIsBusy(false)
+        return
+      }
+
+      if (!partyName.trim()) {
+        setErrorMessage(t('requiredParty'))
+        setIsBusy(false)
+        return
+      }
+
+      if (parsedPhrases.length < boardSize * boardSize) {
+        setErrorMessage(t('minPhrases', { size: boardSize, count: boardSize * boardSize }))
+        setIsBusy(false)
+        return
+      }
+
       const data = await request('/parties', {
         method: 'POST',
         body: JSON.stringify({
-          partyName,
-          playerName,
+          partyName: partyName.trim(),
+          playerName: playerName.trim(),
           boardSize,
           linesToWin: clampLines(boardSize, linesToWin),
+          stopOnFirstWin: endOnFirstWin,
           phrases: parsedPhrases,
         }),
       })
@@ -227,12 +498,16 @@ function App() {
       setPartyState(data.party)
       setPlayerId(data.playerId)
       setJoinToken(data.joinToken)
+      setJoinInput('')
       setStoredPlayer(data.party.id, {
         playerId: data.playerId,
         joinToken: data.joinToken,
         name: playerName,
       })
-      setStatusMessage('Pokoj utworzony. Mozesz skopiowac link i zaprosic druga osobe.')
+      setStatusMessage(t('roomCreated', { code: data.party.roomCode }))
+      if (isMobile) {
+        requestAnimationFrame(() => openGamePanel())
+      }
     } catch (error) {
       setErrorMessage(error.message)
     } finally {
@@ -252,10 +527,10 @@ function App() {
           ? `?playerId=${encodeURIComponent(playerId)}&joinToken=${encodeURIComponent(joinToken)}`
           : ''
       const data = await request(`/parties/${nextPartyId}${query}`)
-      setPartyState(data.party)
-      if (!silent) {
-        setStatusMessage('Pokoj znaleziony. Wpisz nick i dolacz.')
-      }
+      setPartyState((current) => {
+        if (getPartySignature(current) === getPartySignature(data.party)) return current
+        return data.party
+      })
     } catch (error) {
       if (!silent) {
         setErrorMessage(error.message)
@@ -267,39 +542,136 @@ function App() {
     }
   }, [joinToken, playerId])
 
-  const joinParty = async () => {
-    if (!partyId) {
-      setErrorMessage('Brakuje identyfikatora pokoju w linku.')
+  const joinPartyById = async (targetPartyId, forceNewPlayer = false) => {
+    if (!targetPartyId) return
+    try {
+      const existingPlayer = getStoredPlayer(targetPartyId)
+      if (!forceNewPlayer && existingPlayer?.playerId && existingPlayer?.joinToken) {
+        setPlayerId(existingPlayer.playerId)
+        setJoinToken(existingPlayer.joinToken)
+        setPlayerName(existingPlayer.name)
+        const data = await request(
+          `/parties/${targetPartyId}?playerId=${encodeURIComponent(existingPlayer.playerId)}&joinToken=${encodeURIComponent(existingPlayer.joinToken)}`,
+        )
+        setPartyId(targetPartyId)
+        setPartyState(data.party)
+        setStatusMessage(t('rejoined'))
+        if (isMobile) {
+          requestAnimationFrame(() => openGamePanel())
+        }
+      } else {
+        if (!playerName.trim()) {
+          setErrorMessage(t('requiredNick'))
+          return
+        }
+        if (forceNewPlayer) {
+          clearStoredPlayer(targetPartyId)
+        }
+        const data = await request(`/parties/${targetPartyId}/join`, {
+          method: 'POST',
+          body: JSON.stringify({ playerName: playerName.trim() }),
+        })
+        setPartyId(targetPartyId)
+        setPlayerId(data.playerId)
+        setJoinToken(data.joinToken)
+        setPartyState(data.party)
+        setStoredPlayer(targetPartyId, {
+          playerId: data.playerId,
+          joinToken: data.joinToken,
+          name: playerName,
+        })
+        setStatusMessage(t('joinedByLink'))
+        if (isMobile) {
+          requestAnimationFrame(() => openGamePanel())
+        }
+      }
+    } catch (error) {
+      setErrorMessage(error.message)
+    }
+  }
+
+  const resolvePartyIdFromInput = async (rawInput) => {
+    const normalizedInput = String(rawInput || '').trim()
+    if (!normalizedInput) return null
+
+    try {
+      const parsedAsUrl = new URL(normalizedInput, window.location.origin)
+      const paramPartyId = parsedAsUrl.searchParams.get(PARTY_PARAM)
+      if (paramPartyId) return paramPartyId
+    } catch {
+      // ignore and continue with code/uuid detection
+    }
+
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalizedInput)) {
+      return normalizedInput
+    }
+
+    const code = sanitizeRoomCode(normalizedInput)
+    if (!code) return null
+
+    const data = await request(`/parties/code/${encodeURIComponent(code)}`)
+    return data.partyId
+  }
+
+  const joinFromInput = async (forceNewPlayer = false) => {
+    if (!joinInput.trim() && !partyId) {
+      setErrorMessage(t('requiredJoinInput'))
       return
     }
 
     setIsBusy(true)
     setErrorMessage('')
+
     try {
-      const existingPlayer = getStoredPlayer(partyId)
-      if (existingPlayer?.playerId && existingPlayer?.joinToken) {
-        setPlayerId(existingPlayer.playerId)
-        setJoinToken(existingPlayer.joinToken)
-        setPlayerName(existingPlayer.name)
-        const data = await request(
-          `/parties/${partyId}?playerId=${encodeURIComponent(existingPlayer.playerId)}&joinToken=${encodeURIComponent(existingPlayer.joinToken)}`,
-        )
-        setPartyState(data.party)
-        setStatusMessage('Wrociles do swojego pokoju.')
-      } else {
-        const data = await request(`/parties/${partyId}/join`, {
-          method: 'POST',
-          body: JSON.stringify({ playerName }),
-        })
-        setPlayerId(data.playerId)
-        setJoinToken(data.joinToken)
-        setPartyState(data.party)
-        setStoredPlayer(partyId, {
-          playerId: data.playerId,
-          joinToken: data.joinToken,
-          name: playerName,
-        })
-        setStatusMessage('Dolaczyles do party po linku.')
+      const targetPartyId = joinInput.trim()
+        ? await resolvePartyIdFromInput(joinInput)
+        : partyId
+
+      if (!targetPartyId) {
+        setErrorMessage(t('notFoundRoom'))
+        setIsBusy(false)
+        return
+      }
+
+      await joinPartyById(targetPartyId, forceNewPlayer)
+      setJoinInput('')
+    } catch (error) {
+      setErrorMessage(error.message)
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  const restartPartyBoard = async () => {
+    if (!partyId || !playerId || !joinToken) return
+
+    setIsBusy(true)
+    setErrorMessage('')
+
+    try {
+      if (parsedPhrases.length < boardSize * boardSize) {
+        setErrorMessage(t('minPhrases', { size: boardSize, count: boardSize * boardSize }))
+        setIsBusy(false)
+        return
+      }
+
+      const data = await request(`/parties/${partyId}/reset`, {
+        method: 'POST',
+        body: JSON.stringify({
+          playerId,
+          joinToken,
+          partyName: partyName.trim() || partyState?.partyName || 'Nowe party',
+          boardSize,
+          linesToWin: clampLines(boardSize, linesToWin),
+          stopOnFirstWin: endOnFirstWin,
+          phrases: parsedPhrases,
+        }),
+      })
+
+      setPartyState(data.party)
+      setStatusMessage(t('boardRestarted'))
+      if (isMobile) {
+        requestAnimationFrame(() => openGamePanel())
       }
     } catch (error) {
       setErrorMessage(error.message)
@@ -314,21 +686,36 @@ function App() {
   }, [mode, partyId, loadParty])
 
   useEffect(() => {
+    if (mode !== 'multi' || !partyState) return
+    setEndOnFirstWin(Boolean(partyState.stopOnFirstWin))
+    setPartyName(partyState.partyName ?? 'Nowe party')
+    setBoardSize(partyState.boardSize ?? 5)
+    setLinesToWin(partyState.linesToWin ?? 2)
+  }, [mode, partyState])
+
+  useEffect(() => {
     if (mode !== 'multi' || !partyId || !playerId || !joinToken) return undefined
     const interval = window.setInterval(() => {
+      const activeTag = document.activeElement?.tagName
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {
+        return
+      }
       loadParty(partyId, { silent: true })
-    }, 2000)
+    }, 5000)
     return () => window.clearInterval(interval)
   }, [mode, partyId, playerId, joinToken, loadParty])
 
   const toggleSingleCell = (cellId) => {
     if (!singleGame) return
+    if (singleGame.stopOnFirstWin && singleGame.winnerDeclared) return
     const nextCells = singleGame.player.cells.map((cell) =>
       cell.id === cellId ? { ...cell, marked: !cell.marked } : cell,
     )
     const nextLines = countLines(nextCells, singleGame.boardSize)
+    const winnerDeclared = singleGame.winnerDeclared || nextLines >= singleGame.linesToWin
     setSingleGame({
       ...singleGame,
+      winnerDeclared,
       player: {
         ...singleGame.player,
         cells: nextCells,
@@ -339,6 +726,33 @@ function App() {
 
   const togglePartyCell = async (cellId) => {
     if (!partyId || !playerId || !joinToken) return
+    if (partyState?.stopOnFirstWin && partyState?.winnerRoomPlayerId) return
+
+    if (partyState) {
+      setPartyState((current) => {
+        if (!current) return current
+
+        const nextPlayers = current.players.map((player) => {
+          if (player.id !== playerId) return player
+
+          const nextCells = player.cells.map((cell) =>
+            cell.id === cellId ? { ...cell, marked: !cell.marked } : cell,
+          )
+
+          return {
+            ...player,
+            cells: nextCells,
+            lines: countLines(nextCells, current.boardSize),
+          }
+        })
+
+        return {
+          ...current,
+          players: nextPlayers,
+        }
+      })
+    }
+
     try {
       await request(`/parties/${partyId}/mark`, {
         method: 'POST',
@@ -347,6 +761,7 @@ function App() {
       await loadParty(partyId, { silent: true })
     } catch (error) {
       setErrorMessage(error.message)
+      await loadParty(partyId, { silent: true })
     }
   }
 
@@ -354,19 +769,42 @@ function App() {
     if (!inviteLink) return
     try {
       await navigator.clipboard.writeText(inviteLink)
-      setStatusMessage('Link zaproszenia skopiowany.')
+      setStatusMessage(t('linkCopied'))
     } catch {
-      setStatusMessage(`Skopiuj recznie: ${inviteLink}`)
+      setStatusMessage(t('linkManual', { link: inviteLink }))
     }
+  }
+
+  const copyRoomCode = async () => {
+    if (!roomCode) return
+    try {
+      await navigator.clipboard.writeText(roomCode)
+      setStatusMessage(t('codeCopied', { code: roomCode }))
+    } catch {
+      setStatusMessage(t('codeManual', { code: roomCode }))
+    }
+  }
+
+  const openSettingsPanel = () => {
+    if (!layoutRef.current) return
+    layoutRef.current.scrollTo({ left: 0, behavior: 'smooth' })
+  }
+
+  const openGamePanel = () => {
+    if (!layoutRef.current) return
+    const container = layoutRef.current
+    container.scrollTo({ left: container.clientWidth, behavior: 'smooth' })
   }
 
   const leaveParty = () => {
     setPartyState(null)
     setPartyId(null)
+    setJoinInput('')
+    setMultiLobbyView('join')
     setPlayerId(null)
     setJoinToken(null)
     setMode('single')
-    setStatusMessage('Wrociles do trybu single player.')
+    setStatusMessage(t('switchedToSingle'))
     setErrorMessage('')
     setPartyInUrl(null)
   }
@@ -378,187 +816,429 @@ function App() {
     <main className="app-shell">
       <section className="topbar">
         <div>
-          <p className="eyebrow">React Bingo</p>
-          <h1>Bingo z pokojem po linku i wspolnym leaderboardem</h1>
+          <p className="eyebrow">{t('appTitle')}</p>
+          <h1>{t('appHero')}</h1>
         </div>
 
         <div className="topbar-actions">
-          <div className="toggle-group" role="tablist" aria-label="Tryb gry">
+          <div className="toggle-group" role="tablist" aria-label={t('modeLabel')}>
             <button
               type="button"
               className={mode === 'single' ? 'is-active' : ''}
               onClick={() => setMode('single')}
             >
-              Single player
+              {t('modeSingle')}
             </button>
             <button
               type="button"
               className={mode === 'multi' ? 'is-active' : ''}
               onClick={() => setMode('multi')}
             >
-              Multiplayer online
+              {t('modeMulti')}
             </button>
           </div>
 
-          <div className="toggle-group" role="tablist" aria-label="Motyw">
+          <div className="toggle-group" role="tablist" aria-label="Theme">
             <button
               type="button"
               className={theme === 'light' ? 'is-active' : ''}
               onClick={() => setTheme('light')}
             >
-              Jasny
+              {t('themeLight')}
             </button>
             <button
               type="button"
               className={theme === 'dark' ? 'is-active' : ''}
               onClick={() => setTheme('dark')}
             >
-              Ciemny
+              {t('themeDark')}
             </button>
           </div>
         </div>
       </section>
 
-      <section className="layout">
+      <section className="layout" ref={layoutRef}>
         <aside className="panel settings-panel">
           <div className="panel-header">
-            <h2>Ustawienia</h2>
+            <h2>{t('settingsTitle')}</h2>
             <p>
-              W single tworzysz plansze lokalnie. W multiplayerze zakladasz pokoj i zapraszasz
-              kogos po linku.
+              {mode === 'single'
+                ? t('settingsSingleDesc')
+                : isInMultiplayerRoom
+                  ? isHost
+                    ? t('settingsMultiHostDesc')
+                    : t('settingsMultiPlayerDesc')
+                  : t('settingsMultiLobbyDesc')}
             </p>
           </div>
 
           <label className="field">
-            <span>{mode === 'multi' ? 'Twoj nick' : 'Nazwa gracza'}</span>
+            <span>{mode === 'multi' ? t('labelPlayerMulti') : t('labelPlayerSingle')}</span>
             <input
               type="text"
               value={playerName}
               onChange={(event) => setPlayerName(event.target.value)}
+              placeholder={locale === LOCALE_PL ? (mode === 'multi' ? 'Np. Tomek' : 'Np. Gracz 1') : (mode === 'multi' ? 'e.g. Alex' : 'e.g. Player 1')}
             />
           </label>
 
-          {mode === 'multi' ? (
+          {mode === 'multi' && !isInMultiplayerRoom && !isMobile ? (
+            <div className="field">
+              <span>{t('actionGroup')}</span>
+              <div className="toggle-group">
+                <button
+                  type="button"
+                  className={multiLobbyView === 'create' ? 'is-active' : ''}
+                  onClick={() => setMultiLobbyView('create')}
+                >
+                  {t('actionCreate')}
+                </button>
+                <button
+                  type="button"
+                  className={multiLobbyView === 'join' ? 'is-active' : ''}
+                  onClick={() => setMultiLobbyView('join')}
+                >
+                  {t('actionJoin')}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {mode === 'multi' && showBoardSettings && !isInMultiplayerRoom ? (
             <label className="field">
-              <span>Nazwa pokoju</span>
+              <span>{t('labelPartyName')}</span>
               <input
                 type="text"
                 value={partyName}
                 onChange={(event) => setPartyName(event.target.value)}
+                disabled={isBusy}
+                placeholder={locale === LOCALE_PL ? 'Np. Wieczorne bingo' : 'e.g. Friday Bingo'}
               />
             </label>
           ) : null}
 
-          <div className="field">
-            <span>Rozmiar planszy</span>
-            <div className="size-grid">
-              {BOARD_SIZES.map((size) => (
-                <button
-                  type="button"
-                  key={size}
-                  className={boardSize === size ? 'is-active' : ''}
-                  onClick={() => setBoardSize(size)}
-                >
-                  {size}x{size}
-                </button>
-              ))}
+          {mode === 'multi' && !isInMultiplayerRoom && multiLobbyView === 'join' && !isMobile ? (
+            <label className="field">
+              <span>{t('labelRoomInput')}</span>
+              <input
+                type="text"
+                value={joinInput}
+                onChange={(event) => setJoinInput(event.target.value)}
+                placeholder={t('roomInputPlaceholder')}
+              />
+              <small>{t('roomInputHint')}</small>
+            </label>
+          ) : null}
+
+          {showBoardSettings ? (
+            <div className="field">
+              <span>{t('boardSize')}</span>
+              <div className="size-grid">
+                {BOARD_SIZES.map((size) => (
+                  <button
+                    type="button"
+                    key={size}
+                    className={boardSize === size ? 'is-active' : ''}
+                    disabled={!availableBoardSizes.includes(size)}
+                    onClick={() => setBoardSize(size)}
+                  >
+                    {size}x{size}
+                  </button>
+                ))}
+              </div>
+              <small>{t('boardSizeHint')}</small>
             </div>
-          </div>
+          ) : null}
 
-          <label className="field">
-            <span>Linie do wygranej</span>
-            <input
-              type="number"
-              min="1"
-              max={maxPossibleLines}
-              value={linesToWin}
-              onChange={(event) => setLinesToWin(Number(event.target.value) || 1)}
-            />
-            <small>Maksymalnie {maxPossibleLines} linii dla planszy {boardSize}x{boardSize}.</small>
-          </label>
+          {showBoardSettings ? (
+            <label className="field">
+              <span>{t('linesToWin')}</span>
+              <input
+                type="number"
+                min="1"
+                max={maxPossibleLines}
+                value={linesToWin}
+                onChange={(event) => setLinesToWin(Number(event.target.value) || 1)}
+              />
+              <small>{t('linesToWinHint', { max: maxPossibleLines, size: boardSize })}</small>
+            </label>
+          ) : null}
 
-          <label className="field">
-            <span>Hasla bingo, po jednym na linie</span>
-            <textarea
-              rows="12"
-              value={phrasesText}
-              onChange={(event) => setPhrasesText(event.target.value)}
-            />
-            <small>
-              W multiplayerze ten zestaw dostaja wszyscy, ale kazdemu serwer losuje inna plansze.
-            </small>
-          </label>
+          {showBoardSettings ? (
+            <div className="field">
+              <span>{t('endGame')}</span>
+              <label className="switch-control" htmlFor="end-on-first-win">
+                <input
+                  id="end-on-first-win"
+                  type="checkbox"
+                  checked={endOnFirstWin}
+                  onChange={(event) => setEndOnFirstWin(event.target.checked)}
+                />
+                <span>{t('endGameSwitch')}</span>
+              </label>
+              <small>
+                {endOnFirstWin
+                  ? t('endGameOnHint')
+                  : t('endGameOffHint')}
+              </small>
+            </div>
+          ) : null}
+
+          {showBoardSettings ? (
+            <label className="field">
+              <span>{t('phrases')}</span>
+              <textarea
+                rows="12"
+                value={phrasesText}
+                onChange={(event) => setPhrasesText(event.target.value)}
+                placeholder={phrasesPlaceholder}
+              />
+              <small>
+                {t('phrasesHint')}
+              </small>
+            </label>
+          ) : null}
 
           {mode === 'single' ? (
             <div className="actions">
-              <button type="button" className="primary-button" onClick={createSingleGame}>
-                Stworz plansze
+              <button
+                type="button"
+                className="primary-button"
+                onClick={createSingleGame}
+                disabled={!canCreateForSelectedSize || !canUsePlayerName}
+              >
+                {t('singleCreate')}
               </button>
             </div>
           ) : (
             <div className="actions actions-stack">
-              <button
-                type="button"
-                className="primary-button"
-                onClick={createParty}
-                disabled={isBusy}
-              >
-                Stworz pokoj
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={joinParty}
-                disabled={isBusy || !partyId}
-              >
-                Dolacz z tego linku
-              </button>
-              {partyId ? (
-                <button type="button" className="secondary-button" onClick={copyInviteLink}>
-                  Kopiuj link
+              {isInMultiplayerRoom ? (
+                <>
+                  {isHost ? (
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={restartPartyBoard}
+                      disabled={isBusy || !canCreateForSelectedSize}
+                    >
+                      {t('restartRoomBoard')}
+                    </button>
+                  ) : (
+                    <button type="button" className="secondary-button" onClick={leaveParty}>
+                      {t('leaveRoom')}
+                    </button>
+                  )}
+                  {partyId ? (
+                    <button type="button" className="secondary-button" onClick={copyInviteLink}>
+                      {t('copyLink')}
+                    </button>
+                  ) : null}
+                  {roomCode ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={copyRoomCode}
+                    >
+                      {t('copyCode', { code: roomCode })}
+                    </button>
+                  ) : null}
+                  {isHost ? (
+                    <button type="button" className="secondary-button" onClick={leaveParty}>
+                      {t('leaveRoom')}
+                    </button>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  {multiLobbyView === 'create' ? (
+                    <>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={createParty}
+                        disabled={isBusy || !canCreateForSelectedSize || !canUsePlayerName || !canUsePartyName}
+                      >
+                        {t('multiCreateRoom')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => setMultiLobbyView('join')}
+                      >
+                        {t('multiGoJoin')}
+                      </button>
+                    </>
+                  ) : null}
+                  {multiLobbyView === 'join' ? (
+                    <>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => joinFromInput(false)}
+                        disabled={isBusy || !canUsePlayerName || (!joinInput.trim() && !partyId)}
+                      >
+                        {t('multiJoinRoom')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => joinFromInput(true)}
+                        disabled={isBusy || (!joinInput.trim() && !partyId)}
+                      >
+                        {t('multiJoinAsNew')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => setMultiLobbyView('create')}
+                      >
+                        {t('multiGoCreate')}
+                      </button>
+                    </>
+                  ) : null}
+                </>
+              )}
+              {(partyState || partyId) && !isInMultiplayerRoom ? (
+                <button type="button" className="secondary-button" onClick={leaveParty}>
+                  {t('leavePreview')}
                 </button>
               ) : null}
-              {(partyState || partyId) && (
-                <button type="button" className="secondary-button" onClick={leaveParty}>
-                  Opusc pokoj
-                </button>
-              )}
             </div>
           )}
 
-          {statusMessage ? <p className="status-message">{statusMessage}</p> : null}
+          {statusMessage && !isInMultiplayerRoom ? <p className="status-message">{statusMessage}</p> : null}
           {errorMessage ? <p className="error-message">{errorMessage}</p> : null}
         </aside>
 
         <section className="board-stage">
           <div className="stage-header">
             <div>
-              <p className="eyebrow">Menu gry</p>
+              <p className="eyebrow">{t('gameMenu')}</p>
               <h2>
                 {mode === 'single'
                   ? singleGame
-                    ? 'Single player'
-                    : 'Najpierw utworz plansze'
+                    ? t('stageTitleSingleReady')
+                    : t('stageTitleSingleEmpty')
                   : partyState?.partyName ?? partyName}
               </h2>
             </div>
             <div className="summary-card">
-              <span>Tryb</span>
-              <strong>{mode === 'multi' ? 'Pokoj online' : 'Single player'}</strong>
-              <span>Cel</span>
-              <strong>{linesGoal ?? linesToWin} linii</strong>
+              <span>{t('modeLabel')}</span>
+              <strong>{mode === 'multi' ? t('modeMulti') : t('modeSingle')}</strong>
+              <span>{t('goalLabel')}</span>
+              <strong>{t('goalLines', { count: linesGoal ?? linesToWin })}</strong>
             </div>
           </div>
 
-          {mode === 'multi' ? (
+          {isMobile && !isInMultiplayerRoom && !currentPlayer ? (
+            <div className="mobile-lobby-card">
+              <div className="toggle-group">
+                <button
+                  type="button"
+                  className={mode === 'single' ? 'is-active' : ''}
+                  onClick={() => setMode('single')}
+                >
+                  Single
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'multi' ? 'is-active' : ''}
+                  onClick={() => setMode('multi')}
+                >
+                  Multi
+                </button>
+              </div>
+
+              {mode === 'single' ? (
+                <div className="mobile-lobby-content">
+                  <p className="mobile-hint">
+                    {t('mobileSingleHint')}
+                  </p>
+                  <button type="button" className="primary-button" onClick={openSettingsPanel}>
+                    {t('mobileOpenSingle')}
+                  </button>
+                </div>
+              ) : null}
+
+              {mode === 'multi' ? (
+                <>
+                  <div className="toggle-group">
+                    <button
+                      type="button"
+                      className={multiLobbyView === 'join' ? 'is-active' : ''}
+                      onClick={() => setMultiLobbyView('join')}
+                    >
+                      {t('actionJoin')}
+                    </button>
+                    <button
+                      type="button"
+                      className={multiLobbyView === 'create' ? 'is-active' : ''}
+                      onClick={() => setMultiLobbyView('create')}
+                    >
+                      {t('actionCreate')}
+                    </button>
+                  </div>
+
+                  {multiLobbyView === 'join' ? (
+                    <div className="mobile-lobby-content">
+                      <label className="field">
+                        <span>{t('labelRoomInput')}</span>
+                        <input
+                          type="text"
+                          value={joinInput}
+                          onChange={(event) => setJoinInput(event.target.value)}
+                          placeholder={t('roomInputPlaceholder')}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="primary-button"
+                        onClick={() => joinFromInput(false)}
+                        disabled={isBusy || (!joinInput.trim() && !partyId)}
+                      >
+                        {t('multiJoinRoom')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => joinFromInput(true)}
+                        disabled={isBusy || !canUsePlayerName || (!joinInput.trim() && !partyId)}
+                      >
+                        {t('multiJoinAsNew')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mobile-lobby-content">
+                      <p className="mobile-hint">
+                        {t('mobileCreateHint')}
+                      </p>
+                      <button type="button" className="primary-button" onClick={openSettingsPanel}>
+                        {t('mobileOpenCreate')}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+
+          {mode === 'multi' && !isInMultiplayerRoom ? (
             <div className="network-card">
               <div>
-                <span className="network-label">Link zaproszenia</span>
-                <strong>{inviteLink || 'Powstanie po stworzeniu pokoju'}</strong>
+                <span className="network-label">{t('networkLink')}</span>
+                <strong>{inviteLink || '-'}</strong>
               </div>
               <div>
-                <span className="network-label">Status pokoju</span>
-                <strong>{partyState ? `${partyState.players.length} graczy online` : 'Oczekiwanie'}</strong>
+                <span className="network-label">{t('networkCode')}</span>
+                <strong>{roomCode || '-'}</strong>
+              </div>
+              <div>
+                <span className="network-label">{t('networkStatus')}</span>
+                <strong>
+                  {partyState
+                    ? t('networkStatusPlayers', { count: partyState.players.length })
+                    : t('networkStatusWaiting')}
+                </strong>
               </div>
             </div>
           ) : null}
@@ -567,14 +1247,14 @@ function App() {
             <>
               <div className="board-meta">
                 <p>
-                  Twoja plansza: <strong>{currentPlayer.name}</strong>
+                  {t('playerBoard', { name: currentPlayer.name })}
                 </p>
                 <p>
-                  Linie: <strong>{currentPlayer.lines}</strong> / {linesGoal}
+                  {t('playerLines', { lines: currentPlayer.lines, goal: linesGoal })}
                 </p>
                 {mode === 'multi' ? (
                   <p>
-                    Widok tylko Twojej planszy. Reszte widzisz na leaderboardzie po prawej.
+                    {t('privateBoardHint')}
                   </p>
                 ) : null}
               </div>
@@ -588,6 +1268,7 @@ function App() {
                     type="button"
                     key={cell.id}
                     className={`board-cell ${cell.marked ? 'is-marked' : ''}`}
+                    disabled={gameLockedByWinner}
                     onClick={() =>
                       mode === 'single' ? toggleSingleCell(cell.id) : togglePartyCell(cell.id)
                     }
@@ -598,66 +1279,65 @@ function App() {
                 ))}
               </div>
 
-              <div className="winner-banner" aria-live="polite">
-                {winners.length > 0 ? (
-                  <span>Wygrana: {winners.map((winner) => winner.name).join(', ')}</span>
-                ) : (
+              {winners.length > 0 ? (
+                <div className="winner-banner" aria-live="polite">
                   <span>
-                    Klikaj pola, a czerwone kolko zaznaczy trafienie. Linie licza sie od razu w
-                    rankingu.
+                    {gameLockedByWinner
+                      ? t('winnerFinalPrefix', { names: winners.map((winner) => winner.name).join(', ') })
+                      : t('winnerPrefix', { names: winners.map((winner) => winner.name).join(', ') })}
                   </span>
-                )}
-              </div>
+                </div>
+              ) : null}
             </>
           ) : (
             <div className="empty-state">
               <p>
                 {mode === 'single'
-                  ? 'Wybierz ustawienia i utworz plansze.'
-                  : 'Stworz pokoj albo wejdz z linku i dolacz do multiplayera.'}
+                  ? t('emptySingle')
+                  : t('emptyMulti')}
               </p>
-              <small>
-                W trybie online kazdy gracz ma swoja wylosowana plansze, a po prawej widac wspolny
-                leaderboard.
-              </small>
+              <small>{t('emptyHint')}</small>
             </div>
           )}
         </section>
 
         <aside className="panel leaderboard-panel">
           <div className="panel-header">
-            <h2>Leaderboard</h2>
-            <p>Kazdy widzi tu, kto ma ile linii lacznie. Plansze pozostaja prywatne.</p>
+            <h2>{t('leaderboardTitle')}</h2>
+            <p>{t('leaderboardHint')}</p>
           </div>
 
           {leaderboard.length > 0 ? (
             <div className="leaderboard-list">
               {leaderboard.map((player, index) => (
-                <div className="leaderboard-row" key={player.id}>
+                <div
+                  className={`leaderboard-row ${winnerIds.has(player.id) ? 'is-winner' : ''}`}
+                  key={player.id}
+                >
                   <div>
                     <span className="leaderboard-rank">#{index + 1}</span>
                     <strong>{player.name}</strong>
+                    {winnerIds.has(player.id) ? <span className="winner-tag">{t('winnerBadge')}</span> : null}
                   </div>
                   <div className="leaderboard-score">
                     <strong>{player.lines}</strong>
-                    <span>linii</span>
+                    <span>{t('linesUnit')}</span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="empty-side-card">
-              <p>Po stworzeniu gry albo dolaczeniu do pokoju tutaj pojawi sie ranking.</p>
+              <p>{t('leaderboardEmpty')}</p>
             </div>
           )}
 
-          <div className="side-note">
-            <strong>Jak dziala online</strong>
-            <p>
-              Pokoj i plansze sa zapisywane w Supabase. Link zaproszenia prowadzi do tego samego
-              party, a stan gry odswieza sie automatycznie.
-            </p>
-          </div>
+          {!isInMultiplayerRoom ? (
+            <div className="side-note">
+              <strong>{t('onlineInfoTitle')}</strong>
+              <p>{t('onlineInfoText')}</p>
+            </div>
+          ) : null}
         </aside>
       </section>
     </main>

@@ -84,12 +84,18 @@ export default async function handler(request, response) {
 
     const { data: room, error: roomError } = await supabase
       .from('rooms')
-      .select('id, lines_to_win, winner_room_player_id')
+      .select('*')
       .eq('id', partyId)
       .single()
 
     if (roomError || !room) {
       sendError(response, 404, 'Nie znaleziono pokoju.')
+      return
+    }
+
+    if (Boolean(room.stop_on_first_winner) && room.winner_room_player_id) {
+      const party = await getPartyForViewer(room.id, player.id)
+      sendJson(response, 409, { error: 'Gra zakonczona po pierwszym zwyciezcy.', party })
       return
     }
 
