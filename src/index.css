@@ -1,0 +1,83 @@
+:root {
+  --bg: #f4efe8;
+  --panel: rgba(255, 252, 248, 0.92);
+  --soft: rgba(250, 242, 235, 0.92);
+  --input: #fffaf5;
+  --border: rgba(112, 74, 53, 0.16);
+  --text: #37251c;
+  --heading: #1d120d;
+  --muted: #7d6457;
+  --accent: #c6452f;
+  --accent-soft: rgba(198, 69, 47, 0.12);
+  --marked: #d6402f;
+  --marked-bg: rgba(214, 64, 47, 0.08);
+  --glow: rgba(255, 146, 109, 0.18);
+  --shadow: 0 18px 50px rgba(89, 48, 28, 0.12);
+  --font-sans: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --font-display: Georgia, 'Times New Roman', serif;
+
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 221, 202, 0.8), transparent 26%),
+    linear-gradient(135deg, #f7f0e7 0%, #efe4d8 52%, #f6f2ec 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root[data-theme='dark'] {
+  --bg: #16110f;
+  --panel: rgba(32, 24, 22, 0.92);
+  --soft: rgba(43, 32, 29, 0.96);
+  --input: #211816;
+  --border: rgba(255, 220, 204, 0.12);
+  --text: #f1e5dd;
+  --heading: #fff9f4;
+  --muted: #bea59a;
+  --accent: #ff6b4a;
+  --accent-soft: rgba(255, 107, 74, 0.16);
+  --marked: #ff5942;
+  --marked-bg: rgba(255, 89, 66, 0.12);
+  --glow: rgba(255, 94, 54, 0.14);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.34);
+  background:
+    radial-gradient(circle at top left, rgba(117, 46, 22, 0.44), transparent 24%),
+    linear-gradient(135deg, #120d0c 0%, #1a1311 56%, #241816 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  color: var(--text);
+  background: var(--bg);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  color: var(--heading);
+}
+
+p {
+  margin: 0;
+}
