@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 
 const BOARD_SIZES = [3, 5, 7]
@@ -101,10 +101,7 @@ function setPartyInUrl(partyId) {
 }
 
 function getStoredPlayer(partyId) {
-  if (!partyId) {
-    return null
-  }
-
+  if (!partyId) return null
   const rawValue = window.localStorage.getItem(`bingo-player-${partyId}`)
   return rawValue ? JSON.parse(rawValue) : null
 }
@@ -123,7 +120,6 @@ async function request(path, options = {}) {
   })
 
   const data = await response.json().catch(() => ({}))
-
   if (!response.ok) {
     throw new Error(data.error ?? 'Nie udalo sie wykonac operacji.')
   }
@@ -146,51 +142,21 @@ function App() {
   const [partyState, setPartyState] = useState(null)
   const [partyId, setPartyId] = useState(initialPartyId)
   const [playerId, setPlayerId] = useState(initialStoredPlayer?.playerId ?? null)
+  const [joinToken, setJoinToken] = useState(initialStoredPlayer?.joinToken ?? null)
   const [statusMessage, setStatusMessage] = useState(
     initialPartyId ? 'Link wykryty. Mozesz dolaczyc do pokoju.' : '',
   )
   const [errorMessage, setErrorMessage] = useState('')
   const [isBusy, setIsBusy] = useState(false)
-  const eventSourceRef = useRef(null)
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
 
   useEffect(() => {
-    if (mode !== 'multi' || !partyId) {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-        eventSourceRef.current = null
-      }
-      return undefined
-    }
-
-    const stream = new EventSource(
-      `${API_BASE}/parties/${partyId}/stream${playerId ? `?playerId=${playerId}` : ''}`,
-    )
-
-    stream.onmessage = (event) => {
-      const payload = JSON.parse(event.data)
-      setPartyState(payload.party)
-    }
-
-    stream.onerror = () => {
-      setStatusMessage('Polaczenie realtime chwilowo przerwane. Probuje wznowic...')
-    }
-
-    eventSourceRef.current = stream
-
-    return () => {
-      stream.close()
-    }
-  }, [mode, partyId, playerId])
-
-  useEffect(() => {
     if (mode === 'multi' && partyId) {
       setPartyInUrl(partyId)
     }
-
     if (mode !== 'multi') {
       setPartyInUrl(null)
     }
@@ -244,7 +210,6 @@ function App() {
   const createParty = async () => {
     setIsBusy(true)
     setErrorMessage('')
-
     try {
       const data = await request('/parties', {
         method: 'POST',
@@ -261,7 +226,12 @@ function App() {
       setPartyId(data.party.id)
       setPartyState(data.party)
       setPlayerId(data.playerId)
-      setStoredPlayer(data.party.id, { playerId: data.playerId, name: playerName })
+      setJoinToken(data.joinToken)
+      setStoredPlayer(data.party.id, {
+        playerId: data.playerId,
+        joinToken: data.joinToken,
+        name: playerName,
+      })
       setStatusMessage('Pokoj utworzony. Mozesz skopiowac link i zaprosic druga osobe.')
     } catch (error) {
       setErrorMessage(error.message)
@@ -269,6 +239,33 @@ function App() {
       setIsBusy(false)
     }
   }
+
+  const loadParty = useCallback(async (nextPartyId, { silent = false } = {}) => {
+    if (!silent) {
+      setIsBusy(true)
+      setErrorMessage('')
+    }
+
+    try {
+      const query =
+        playerId && joinToken
+          ? `?playerId=${encodeURIComponent(playerId)}&joinToken=${encodeURIComponent(joinToken)}`
+          : ''
+      const data = await request(`/parties/${nextPartyId}${query}`)
+      setPartyState(data.party)
+      if (!silent) {
+        setStatusMessage('Pokoj znaleziony. Wpisz nick i dolacz.')
+      }
+    } catch (error) {
+      if (!silent) {
+        setErrorMessage(error.message)
+      }
+    } finally {
+      if (!silent) {
+        setIsBusy(false)
+      }
+    }
+  }, [joinToken, playerId])
 
   const joinParty = async () => {
     if (!partyId) {
@@ -278,14 +275,15 @@ function App() {
 
     setIsBusy(true)
     setErrorMessage('')
-
     try {
       const existingPlayer = getStoredPlayer(partyId)
-
-      if (existingPlayer?.playerId) {
+      if (existingPlayer?.playerId && existingPlayer?.joinToken) {
         setPlayerId(existingPlayer.playerId)
+        setJoinToken(existingPlayer.joinToken)
         setPlayerName(existingPlayer.name)
-        const data = await request(`/parties/${partyId}`)
+        const data = await request(
+          `/parties/${partyId}?playerId=${encodeURIComponent(existingPlayer.playerId)}&joinToken=${encodeURIComponent(existingPlayer.joinToken)}`,
+        )
         setPartyState(data.party)
         setStatusMessage('Wrociles do swojego pokoju.')
       } else {
@@ -293,10 +291,14 @@ function App() {
           method: 'POST',
           body: JSON.stringify({ playerName }),
         })
-
         setPlayerId(data.playerId)
+        setJoinToken(data.joinToken)
         setPartyState(data.party)
-        setStoredPlayer(partyId, { playerId: data.playerId, name: playerName })
+        setStoredPlayer(partyId, {
+          playerId: data.playerId,
+          joinToken: data.joinToken,
+          name: playerName,
+        })
         setStatusMessage('Dolaczyles do party po linku.')
       }
     } catch (error) {
@@ -306,40 +308,25 @@ function App() {
     }
   }
 
-  const loadParty = async (nextPartyId) => {
-    setIsBusy(true)
-    setErrorMessage('')
-
-    try {
-      const data = await request(`/parties/${nextPartyId}`)
-      setPartyState(data.party)
-      setStatusMessage('Pokoj znaleziony. Wpisz nick i dolacz.')
-    } catch (error) {
-      setErrorMessage(error.message)
-    } finally {
-      setIsBusy(false)
-    }
-  }
+  useEffect(() => {
+    if (mode !== 'multi' || !partyId) return
+    loadParty(partyId)
+  }, [mode, partyId, loadParty])
 
   useEffect(() => {
-    if (mode !== 'multi' || !partyId) {
-      return
-    }
-
-    loadParty(partyId)
-  }, [mode, partyId])
+    if (mode !== 'multi' || !partyId || !playerId || !joinToken) return undefined
+    const interval = window.setInterval(() => {
+      loadParty(partyId, { silent: true })
+    }, 2000)
+    return () => window.clearInterval(interval)
+  }, [mode, partyId, playerId, joinToken, loadParty])
 
   const toggleSingleCell = (cellId) => {
-    if (!singleGame) {
-      return
-    }
-
+    if (!singleGame) return
     const nextCells = singleGame.player.cells.map((cell) =>
       cell.id === cellId ? { ...cell, marked: !cell.marked } : cell,
     )
-
     const nextLines = countLines(nextCells, singleGame.boardSize)
-
     setSingleGame({
       ...singleGame,
       player: {
@@ -351,25 +338,20 @@ function App() {
   }
 
   const togglePartyCell = async (cellId) => {
-    if (!partyId || !playerId) {
-      return
-    }
-
+    if (!partyId || !playerId || !joinToken) return
     try {
       await request(`/parties/${partyId}/mark`, {
         method: 'POST',
-        body: JSON.stringify({ playerId, cellId }),
+        body: JSON.stringify({ playerId, joinToken, cellId }),
       })
+      await loadParty(partyId, { silent: true })
     } catch (error) {
       setErrorMessage(error.message)
     }
   }
 
   const copyInviteLink = async () => {
-    if (!inviteLink) {
-      return
-    }
-
+    if (!inviteLink) return
     try {
       await navigator.clipboard.writeText(inviteLink)
       setStatusMessage('Link zaproszenia skopiowany.')
@@ -379,14 +361,10 @@ function App() {
   }
 
   const leaveParty = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-      eventSourceRef.current = null
-    }
-
     setPartyState(null)
     setPartyId(null)
     setPlayerId(null)
+    setJoinToken(null)
     setMode('single')
     setStatusMessage('Wrociles do trybu single player.')
     setErrorMessage('')
@@ -542,7 +520,7 @@ function App() {
               ) : null}
               {(partyState || partyId) && (
                 <button type="button" className="secondary-button" onClick={leaveParty}>
-                  Opuść pokoj
+                  Opusc pokoj
                 </button>
               )}
             </div>
@@ -674,10 +652,10 @@ function App() {
           )}
 
           <div className="side-note">
-            <strong>Jak działa online</strong>
+            <strong>Jak dziala online</strong>
             <p>
-              Pokoj jest trzymany na serwerze Node w pamieci. Link zaproszenia prowadzi do tego
-              samego party, a zmiany planszy leca realtime przez SSE.
+              Pokoj i plansze sa zapisywane w Supabase. Link zaproszenia prowadzi do tego samego
+              party, a stan gry odswieza sie automatycznie.
             </p>
           </div>
         </aside>
@@ -694,20 +672,14 @@ function countLines(cells, size) {
     const done = Array.from({ length: size }, (_, column) => cells[row * size + column]).every(
       (cell) => marked.has(cell.id),
     )
-
-    if (done) {
-      total += 1
-    }
+    if (done) total += 1
   }
 
   for (let column = 0; column < size; column += 1) {
     const done = Array.from({ length: size }, (_, row) => cells[row * size + column]).every(
       (cell) => marked.has(cell.id),
     )
-
-    if (done) {
-      total += 1
-    }
+    if (done) total += 1
   }
 
   const diagonalA = Array.from({ length: size }, (_, index) => cells[index * size + index]).every(

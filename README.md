@@ -9,6 +9,12 @@ npm install
 npm run dev
 ```
 
+For API routes locally with the same behavior as production:
+
+```bash
+npm run dev:vercel
+```
+
 ## CLI Setup
 
 Install locally in this project directory:
@@ -35,6 +41,18 @@ npx vercel login
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 After adding/changing env vars in Vercel, redeploy the project.
+
+## Supabase Migration
+
+Schema is tracked in:
+
+`supabase/migrations/20260327091810_multiplayer_schema.sql`
+
+Push migration:
+
+```bash
+npx supabase db push
+```
 
 ## Security Notes
 
